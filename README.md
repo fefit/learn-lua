@@ -171,20 +171,40 @@ function _M.test()
 end
 
 -- 函数参数
--- 这里使用 ... 来替代函数的剩余参数，类似js里的扩展运算符
+-- 这里使用 ... 来替代函数的剩余参数，实现了可变参数，类似js里的扩展运算符
+-- 注意在形参里 ... 符号只能出现在末尾
 local function testParams(a1, a2, ...)
   print("参数a1=>", a1)
   print("参数a2=>", a2)
   -- 可以将剩余参数 ... 直接传递给其它函数参数
   print("其它参数", ...)
+  -- 可以提取某些参数
+  local a3, a4 = ...
+  print("参数a3=>", a3)
+  print("参数a4=>", a4)
   -- 也可以将剩余参数传递给表
   local restArgs = { ... } -- 等价于 table.pack(...)，将剩余参数保存在表中
   for k, v in ipairs(restArgs) do
     print(k, v)
   end
+  -- ... 也可以出现在非末尾的位置
+  -- 这里 ... 只能获取到返回的第一个值
+  local a3, a4 = ..., "new a4"
+  print("*参数a3=>", a3)
+  print("*参数a4=>", a4)
+  -- 同样，在表中 ... 也只能获取到第一个返回值
+  local restArgs = { ..., "new a4" }
+  print(restArgs[1], restArgs[2]) -- restArgs[2]值为"new a4"
+  -- 不管赋值语句，还是在表声明中，出现位置不在末尾的都相当于以下逻辑
+  local expFirst = (...) -- 转换成表达式，只能获得第一个值
+  local a3, a4 = expFirst, "new a4"
+  local restArgs = { expFirst, "new a4"}
 end
 testParams("a1", "a2", "a3", "a4")
 testParams("a1", "a2", table.unpack({ "a3", "a4" })) -- 和上面等价，表中元素会逐个展开
+testParams("a1", "a2", (function() return "a3", "a4" end)()) -- 返回多个值的函数调用结果也可以直接被展开
+
+
 
 -- 函数返回值
 -- lua的函数返回值可以有多个
@@ -193,6 +213,7 @@ local function testReturn()
   -- return table.unpack({ "a1", "a2", "a3" }) -- 和上面的返回值等价
 end
 local a1, a2, a3, a4 = testReturn() -- a1 = "a1", a2 = "a2", a3 = "a3", a4 = nil
+
 ```
 
 #### 3. 流程控制
