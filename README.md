@@ -135,6 +135,8 @@ print(f) -- nil
     ]]
     -- 字符串连接
     local concatStr = str .. multiStr
+    -- 获取字符串长度
+    local len = #str
     ```
 
 4.  `number`
@@ -224,6 +226,10 @@ print(f) -- nil
       local expFirst = (...) -- 转换成表达式，只能获得第一个值
       local a3, a4 = expFirst, "new a4"
       local restArgs = { expFirst, "new a4"}
+      -- 如果想获取可变参数的第几个，还可以使用select方法
+      local a3 = select(1, ...) -- 实际获取到的是 ... 从第1个开始以后的所有参数，但这里只取了第1个的值
+      local a4, a5 = select(2, ...) -- 跳过 ... 第1个参数，获取后面的所有参数
+      local n = select("#", ...) -- 除了数字，还可以使用特殊的 '#' 字符表示获取到整个 ... 的长度
     end
     testParams("a1", "a2", "a3", "a4")
     testParams("a1", "a2", table.unpack({ "a3", "a4" })) -- 和上面等价，表中元素会逐个展开
@@ -303,9 +309,154 @@ print(f) -- nil
 
    ```lua
    -- = 符号右侧可设置三个参数，起始值、结束值、步阶（默认为1）
-   for n = 0, 10, 1 do
+   for n = 0, 10, 1 do -- for(let i = 0; i < 10; i++)
       print(n)
    end
+
    ```
 
 #### 5. `for` 循环与迭代器
+
+`for` 循环除了上面这种按照初始值、结束值、步阶的循环书写方式，还支持 `for in` 的语法，比如我们经常会碰到的遍历表：
+
+```lua
+local arr = { "first", "second", "third" }
+for i,v in ipairs(arr) do
+  print(i, v)
+end
+-- 1 first
+-- 2 second
+-- 3 third
+local map = { first = 1, second = 2, third = 3}
+for k,v in pairs(map) do
+  print(k, v)
+end
+-- first  1
+-- second 2
+-- third  3
+```
+
+从上面可以看到，`for in` 遍历表的时候我们借用了 `iparis` 及 `pairs` 两个全局方法。这两个方法在 lua 里经常容易被混淆，这里先来看一下它们的遍历方式的区别（后面我们再来理解为什么会有这种区别）：
+
+- `ipairs`： 通过键以固定的数字序列 `1`, `2` ... `n` 顺序、逐个去访问表，当键对应的值为 `nil` 时，就会停止遍历
+- `pairs`： 按照随机顺序的键值（不能依赖其顺序）遍历表，值为 `nil` 时也<b>不会停止</b>
+
+我们来看一些例子，加深下印象：
+
+```lua
+local arr = { "first", "second", [4] = "forth"}
+for i,v in ipairs(arr) do
+  print(i, v)
+end
+-- 1 first
+-- 2 second
+------- 并没有输出，"4  forth"，因为按照键 1, 2, 3, ...遍历时，arr[3] == nil，停止遍历
+for k,v in pairs(arr) do
+  print(k, v)
+end
+-- 1 first
+-- 2 second
+-- 4 forth
+------- 使用 pairs 输出了 "4 forth"，遍历的时候会遍历所有的键值
+```
+
+实际上在，在 `for <var-list> in <exp-list> do <code> end` 里的 `in` 关键字之后的 `<exp-list>`，我们可以传递三个值：
+
+1. `iter(constant, varCurrentValue)` ——执行迭代的函数，该函数可接收两个参数。
+2. `constant` ——状态常量，也即 `iter` 迭代函数接接收到的第 1 个参数，该参数在迭代过程中保持不变，比如上面说的 `ipairs` 方法，这个状态常量就是我们要遍历的表。
+3. `varInitialValue` ——控制变量，这个参数提供了控制变量的初始值，也即 `iter` 迭代函数第一次执行时，接收到的第 2 个参数。
+
+迭代器执行的代码逻辑类似如下：
+
+```lua
+-- 以下为伪代码，仅供了解迭代器的执行逻辑
+do
+  -- 获取三个变量值
+  local iter, constant, varInitialValue = `<exp-list>`;
+  -- 初始化控制变量的值为初始值
+  local varCurrentValue = varInitialValue
+  -- 执行循环
+  while true do
+    local varNextValue, ... = iter(constant, varCurrentValue)
+    -- 如果iter迭代函数的第一个返回值为nil，则停止迭代
+    if varNextValue == nil then
+      break
+    end
+    -- 否则将回调函数 iter 执行后的返回值赋值给变量
+    `<var-list>` = varNextValue, ...
+    -- 执行 for 循环体内的代码
+    `<code>`
+    -- 更新控制变量的值
+    varCurrentValue = varNextValue
+  end
+end
+```
+
+理解了上面的代码流程，我们就能比较容易地书写自己的迭代器了。
+
+```lua
+-- 先实现个ipairs
+local iter = function(tbl, index)
+  -- 因为控制变量index要从1开始，所以初始index需设为0
+  -- 返回值index,value需成对匹配
+  index = index + 1
+  local value = tbl[index]
+  if value ~= nil then
+    return index, value
+  end
+end
+
+local tbl = { "first", "second", [4] = "forth" }
+for i,v in iter, tbl, 0 do
+  print(i, v)
+end
+-- 1 first
+-- 2 second
+
+-- 以上代码看得不够精简，我们把 <exp-list> 包装到函数中
+local my_ipairs = function(tbl)
+  return iter, tbl, 0
+end
+-- 这样以上的代码就可以改成下面这样，my_ipairs方法就实现了ipairs相同的效果
+for i,v in my_ipairs(tbl) do
+  print(i, v)
+end
+```
+
+```lua
+-- 再实现个pairs
+-- 迭代table表的键值需要借助全局的next方法，没有直接的办法获取到所有的键列表
+local iter = next
+local my_pairs = function(tbl)
+  return iter, tbl
+end
+```
+
+从 `my_pairs` 的代码中可以看到，控制变量可以不必返回，同样状态常量也不一定需要返回，只有迭代函数 `iter` 是必须的。
+
+```lua
+local closure_ipairs = function(tbl)
+  local index = 0
+  local len = #tbl
+  -- 返回一个闭包，闭包能访问到变量index下标、len表长度及tbl本身
+  return function()
+    if index < len then
+      index = index + 1
+      local value = tbl[index]
+      if value ~= nil then
+        return index, value
+      end
+    end
+  end
+end
+local tbl = { "first", "second", [4] = "forth" }
+for i,v in closure_ipairs(tbl) do
+  print(i, v)
+end
+-- 1 first
+-- 2 second
+```
+
+相比于上面 `my_ipairs` 或者 `my_pairs` 的实现，`closure_ipairs` 利用闭包的特性访问了状态常量 `tbl`，同时通过控制变量 `index` 的变更结合变量 `len` 实现迭代前的检查及迭代后的控制条件改变。因为闭包（迭代函数）自身保存了控制变量及状态常量的值，因此我们称闭包形式的迭代器是有状态的；而 `my_ipairs` 和 `pairs` 是无状态的，它的迭代函数所依赖的变量是通过参数传递进去的。使用闭包创建的有状态迭代器因为每次创建都会形成一个新闭包（返回一个新的迭代函数），而无状态迭代器的迭代函数只有一个，所以如果迭代器会被多次使用，无状态的迭代器要来得高效。
+
+#### 6. 表与元表
