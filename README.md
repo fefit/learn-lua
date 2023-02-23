@@ -148,16 +148,16 @@ print(f) -- nil
 
 4.  `number`
 
-        ```lua
-        ---------number---------
-        local m = 100
-        local n = 1e3
-        if 0 then
-          print("0 -> true") -- "0 -> true"
-        else
-          print("0 -> false")
-        end
-        ```
+    ```lua
+    ---------number---------
+    local m = 100
+    local n = 1e3
+    if 0 then
+      print("0 -> true") -- "0 -> true"
+    else
+      print("0 -> false")
+    end
+    ```
 
 5.  `table`
 
@@ -346,7 +346,7 @@ end
 从上面可以看到，`for in` 遍历表的时候我们借用了 `iparis` 及 `pairs` 两个全局方法。这两个方法在 lua 里经常容易被混淆，这里先来看一下它们的遍历方式的区别（后面我们再来理解为什么会有这种区别）：
 
 - `ipairs`： 通过键以固定的数字序列 `1`, `2` ... `n` 顺序、逐个去访问表，当键对应的值为 `nil` 时，就会停止遍历
-- `pairs`： 按照随机顺序的键值（不能依赖其顺序）遍历表，值为 `nil` 时也<b>不会停止</b>
+- `pairs`： 按照随机顺序的键值（不能依赖其顺序）遍历表，值为 `nil` 时也<b>不会停止</b>，但不会遍历该值。
 
 我们来看一些例子，加深下印象：
 
